@@ -1,0 +1,9 @@
+[submodule "lib/Adafruit_CircuitPython_SD"]
+	path = lib/Adafruit_CircuitPython_SD
+	url = https://github.com/adafruit/Adafruit_CircuitPython_SD/
+[submodule "lib/Adafruit_CircuitPython_BusDevice"]
+	path = lib/Adafruit_CircuitPython_BusDevice
+	url = https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
+[submodule "lib/Adafruit_CircuitPython_Display_Text"]
+	path = lib/Adafruit_CircuitPython_Display_Text
+	url = https://github.com/adafruit/Adafruit_CircuitPython_Display_Text

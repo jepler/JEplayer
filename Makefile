@@ -1,0 +1,25 @@
+DESTDEV = /media/jepler/CIRCUITPY
+PYTHON = .venv/bin/python
+
+default: install
+
+.PHONY: install
+install: cp
+	rsync --max-delete=0 --modify-window=2 -av CIRCUITPY/ $(DESTDEV)/
+	sync
+
+.PHONY: clean
+clean:
+	rm -rf img CIRCUITPY .venv
+
+.PHONY: cp
+cp:
+	$(PYTHON) install.py
+
+.PHONY: venv
+venv: .venv/bin/python
+
+.venv/bin/python:
+	/usr/bin/python3 -mvenv --clear .venv
+	$(PYTHON) -mpip install wheel
+	$(PYTHON) -mpip install -r requirements.txt
