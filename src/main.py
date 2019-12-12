@@ -137,7 +137,7 @@ def choose_mp3s():
 
     idx = menu_choice(choices, BUTTON_START | BUTTON_A | BUTTON_B, BUTTON_SEL)
     if idx < 0: return []
-    if idx > 2: return [all_mp3s[idx-2]]
+    if idx >= 2: return [all_mp3s[idx-2]]
     if idx == 1: shuffle(all_mp3s)
     return all_mp3s
 
