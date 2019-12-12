@@ -1,5 +1,5 @@
-from adafruit_display_text import label
-from repeat import KeyRepeat
+import adafruit_display_text.label
+import bar
 import adafruit_sdcard
 import analogjoy
 import analogio
@@ -15,6 +15,7 @@ import gc
 import microcontroller
 import os
 import random
+import repeat
 import storage
 import terminalio
 import time
@@ -28,10 +29,10 @@ BUTTON_A = const(2)
 BUTTON_B = const(1)
 
 joystick = analogjoy.AnalogJoystick()
-up_key = KeyRepeat(lambda: joystick.up, rate=0.2)
-down_key = KeyRepeat(lambda: joystick.down, rate=0.2)
-left_key = KeyRepeat(lambda: joystick.left, rate=0.2)
-right_key = KeyRepeat(lambda: joystick.right, rate=0.2)
+up_key = repeat.KeyRepeat(lambda: joystick.up, rate=0.2)
+down_key = repeat.KeyRepeat(lambda: joystick.down, rate=0.2)
+left_key = repeat.KeyRepeat(lambda: joystick.left, rate=0.2)
+right_key = repeat.KeyRepeat(lambda: joystick.right, rate=0.2)
 
 buttons = gamepadshift.GamePadShift(digitalio.DigitalInOut(board.BUTTON_CLOCK),
                                     digitalio.DigitalInOut(board.BUTTON_OUT),
@@ -46,7 +47,6 @@ def mount_sd():
 
 def play_one_file(speaker, filename):
     with open(filename, "rb") as f, audiomp3.MP3File(f) as mp3:
-        print(filename)
         speaker.play(mp3)
         while speaker.playing:
             time.sleep(.1)
@@ -66,20 +66,6 @@ def play_all(dir='/sd'):
                 if f.lower().endswith('.mp3'):
                     play_one_file(speaker, join(dir, f))
 
-def play_wav():
-    with audioio.AudioOut(board.SPEAKER) as speaker:
-        with open("bwv-854.wav", "rb") as f, audiocore.WaveFile(f) as wav:
-            print("stereo wav, mono out")
-            speaker.play(wav)
-            while speaker.playing:
-                time.sleep(.1)
-    with audioio.AudioOut(board.SPEAKER, right_channel=board.A1) as speaker:
-        with open("bwv-854.wav", "rb") as f, audiocore.WaveFile(f) as wav:
-            print("stereo wav, stereo out")
-            speaker.play(wav)
-            while speaker.playing:
-                time.sleep(.1)
-
 def blank_screen():
     displayio.release_displays()
 
@@ -97,11 +83,10 @@ def menu_choice(seq, button_ok, button_cancel, *, sel_idx=0, font=terminalio.FON
     glyph_width, glyph_height = font.get_bounding_box()
     num_rows = min(len(seq), board.DISPLAY.height // glyph_height)
     max_glyphs = board.DISPLAY.width // glyph_width
-    labels = [label.Label(font, max_glyphs=max_glyphs)
+    labels = [adafruit_display_text.label.Label(font, max_glyphs=max_glyphs)
                 for i in range(num_rows)]
-    cursor = label.Label(font, max_glyphs=1, color=0xddddff)
+    cursor = adafruit_display_text.label.Label(font, max_glyphs=1, color=0xddddff)
     y0 = (glyph_height+1)//2
-    print(labels)
     scene = displayio.Group(max_size=len(labels) + 1)
     for i, li in enumerate(labels):
         li.x = round(glyph_width * 1.5)
@@ -151,7 +136,6 @@ def choose_mp3s():
         [i[:-4].replace("_", " ") for i in all_mp3s])
 
     idx = menu_choice(choices, BUTTON_START | BUTTON_A | BUTTON_B, BUTTON_SEL)
-    print("idx", idx)
     if idx < 0: return []
     if idx > 2: return [all_mp3s[idx-2]]
     if idx == 1: shuffle(all_mp3s)
@@ -167,27 +151,30 @@ def play_one_file(speaker, idx, filename, title, next_title):
     font = terminalio.FONT
     glyph_width, glyph_height = font.get_bounding_box()
 
-    scene = displayio.Group(max_size=2)
+    scene = displayio.Group(max_size=3)
 
-    text = label.Label(font, text=
+    text = adafruit_display_text.label.Label(font, text=
         "  Now playing:\n%s\n\n  Next up:\n%s" % (title, next_title))
     text.x = 0
     text.y = board.DISPLAY.height//2
     scene.append(text)
 
-    info = label.Label(terminalio.FONT, max_glyphs=32)
+    info = adafruit_display_text.label.Label(terminalio.FONT, max_glyphs=32)
     info.x = 0
     info.y = board.DISPLAY.height - glyph_height // 2
     scene.append(info)
+
+    progress = bar.Bar(0, 0, board.DISPLAY.width, glyph_height, colors=(0x0000ff, None))
+    scene.append(progress)
 
     board.DISPLAY.show(scene)
 
     result = idx + 1
     wait_no_button_pressed()
     paused = False
+    sz = os.stat(filename)[6]
     with open(filename, "rb") as f, audiomp3.MP3File(f) as mp3:
         speaker.play(mp3)
-        print(speaker.playing)
         while speaker.playing:
 
             gc.collect()
@@ -195,6 +182,8 @@ def play_one_file(speaker, idx, filename, title, next_title):
             vbat = adc_vbat.value * scale_vbat
             temp = average_temperature()
             info.text = ("%6db    %3.1fv    % 2.0fC" % (free, vbat, temp))[:32]
+
+            progress.value = f.tell() / sz
 
             pressed = buttons.get_pressed()
             # SEL: cancel playlist
@@ -204,7 +193,6 @@ def play_one_file(speaker, idx, filename, title, next_title):
             # START: play/pause
             if pressed & BUTTON_START:
                 wait_no_button_pressed()
-                print("pause/resume", speaker.paused)
                 if paused:
                     speaker.resume()
                     paused = False
@@ -227,8 +215,10 @@ def play_one_file(speaker, idx, filename, title, next_title):
 
 def play_all(playlist, *, dir='/sd'):
     # In 5.0a1, stereo playback on samd dac doesn't work due to a bug
-    #with audioio.AudioOut(board.SPEAKER, right_channel=board.A1) as speaker, \
-    with audioio.AudioOut(board.SPEAKER) as speaker, \
+    # This will be fixed in the next release, but for now you can
+    # uncomment the next line and delete the one after it
+    #with audioio.AudioOut(board.SPEAKER) as speaker, \
+    with audioio.AudioOut(board.SPEAKER, right_channel=board.A1) as speaker, \
             digitalio.DigitalInOut(board.SPEAKER_ENABLE) as enable:
         enable.direction = digitalio.Direction.OUTPUT
         enable.value = True
@@ -237,13 +227,11 @@ def play_all(playlist, *, dir='/sd'):
             f = playlist[i]
             next_up = playlist[i+1][:-4] if i+1 < len(playlist) else "(the end)"
             i = play_one_file(speaker, i, join(dir, f), f[:-4], next_up)
-            print("play_one_file returned", i)
         speaker.stop()
 
 mount_sd()
 while True:
     playlist = choose_mp3s()
-    print(playlist)
     clear_display()
     play_all(playlist)
 
