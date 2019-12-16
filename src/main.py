@@ -45,12 +45,6 @@ def mount_sd():
     vfs = storage.VfsFat(sdcard)
     storage.mount(vfs, "/sd")
 
-def play_one_file(speaker, filename):
-    with open(filename, "rb") as f, audiomp3.MP3File(f) as mp3:
-        speaker.play(mp3)
-        while speaker.playing:
-            time.sleep(.1)
-
 def join(base, *args):
     for a in args: base = base + '/' + a
     return base
@@ -166,6 +160,7 @@ def play_one_file(speaker, idx, filename, title, next_title):
     scene = displayio.Group(max_size=3)
 
     text = adafruit_display_text.label.Label(font, text=
+        "%s\n\nNow playing:\n%s\n\nNext up:\n%s" % (folder, title, next_title))
         "  Now playing:\n%s\n\n  Next up:\n%s" % (title, next_title))
     text.x = 0
     text.y = board.DISPLAY.height//2
