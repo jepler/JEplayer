@@ -141,6 +141,18 @@ def choose_mp3s():
     if idx == 1: shuffle(all_mp3s)
     return all_mp3s
 
+S_IFDIR = const(16384)
+def isdir(x): return os.stat(x)[0] & S_IFDIR
+def choose_folder(base='/sd'):
+    all_folders = sorted(m for m in os.listdir(base) if isdir(join(base, m)))
+    choices = ['Surprise Me'] + all_folders
+
+    idx = menu_choice(choices,
+            BUTTON_START | BUTTON_A | BUTTON_B | BUTTON_SEL, 0)
+    if idx >= 1: result = all_folders[idx-1]
+    else: result = random.choice(all_folders)
+    return join(base, result)
+
 def wait_no_button_pressed():
     while buttons.get_pressed(): time.sleep(1/20)
 
@@ -229,9 +241,14 @@ def play_all(playlist, *, dir='/sd'):
             i = play_one_file(speaker, i, join(dir, f), f[:-4], next_up)
         speaker.stop()
 
+def play_folder(dir):
+    print("play_folder", dir)
+    playlist = [d for d in os.listdir(dir) if d.lower().endswith('.mp3')]
+    play_all(playlist, dir=dir)
+
 mount_sd()
 while True:
-    playlist = choose_mp3s()
+    folder = choose_folder()
     clear_display()
-    play_all(playlist)
+    play_folder(folder)
 
