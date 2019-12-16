@@ -153,7 +153,7 @@ def wait_no_button_pressed():
 def average_temperature(n=20):
     return sum(microcontroller.cpu.temperature for i in range(n)) / n
 
-def play_one_file(speaker, idx, filename, title, next_title):
+def play_one_file(speaker, idx, filename, folder, title, next_title):
     font = terminalio.FONT
     glyph_width, glyph_height = font.get_bounding_box()
 
@@ -161,7 +161,6 @@ def play_one_file(speaker, idx, filename, title, next_title):
 
     text = adafruit_display_text.label.Label(font, text=
         "%s\n\nNow playing:\n%s\n\nNext up:\n%s" % (folder, title, next_title))
-        "  Now playing:\n%s\n\n  Next up:\n%s" % (title, next_title))
     text.x = 0
     text.y = board.DISPLAY.height//2
     scene.append(text)
@@ -220,7 +219,7 @@ def play_one_file(speaker, idx, filename, title, next_title):
     clear_display()
     return result
 
-def play_all(playlist, *, dir='/sd'):
+def play_all(playlist, *, folder='', trim=0, dir='/sd'):
     # In 5.0a1, stereo playback on samd dac doesn't work due to a bug
     # This will be fixed in the next release, but for now you can
     # uncomment the next line and delete the one after it
@@ -232,14 +231,23 @@ def play_all(playlist, *, dir='/sd'):
         i = 0
         while i >= 0 and i < len(playlist):
             f = playlist[i]
-            next_up = playlist[i+1][:-4] if i+1 < len(playlist) else "(the end)"
-            i = play_one_file(speaker, i, join(dir, f), f[:-4], next_up)
+            next_up = (playlist[i+1][trim:-4]
+                        if i+1 < len(playlist) else "(the end)")
+            i = play_one_file(speaker, i, join(dir, f), folder, f[trim:-4], next_up)
         speaker.stop()
+
+def longest_common_prefix(seq):
+    seq0 = seq[0]
+    for i in range(0, len(seq0)):
+        for j in seq:
+            if len(j) < i or j[i] != seq0[i]: return i
+    return len(seq0)
 
 def play_folder(dir):
     print("play_folder", dir)
     playlist = [d for d in os.listdir(dir) if d.lower().endswith('.mp3')]
-    play_all(playlist, dir=dir)
+    trim = longest_common_prefix(playlist)
+    play_all(playlist, folder=dir.split('/')[-1], trim=trim, dir=dir)
 
 mount_sd()
 while True:
