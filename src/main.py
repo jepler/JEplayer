@@ -73,6 +73,7 @@ def clear_display():
     board.DISPLAY.show(displayio.Group(max_size=1))
 
 def menu_choice(seq, button_ok, button_cancel, *, sel_idx=0, font=terminalio.FONT):
+    board.DISPLAY.auto_refresh = True
     scroll_idx = sel_idx
     glyph_width, glyph_height = font.get_bounding_box()
     num_rows = min(len(seq), board.DISPLAY.height // glyph_height)
@@ -153,11 +154,38 @@ def wait_no_button_pressed():
 def average_temperature(n=20):
     return sum(microcontroller.cpu.temperature for i in range(n)) / n
 
+_bitmap_file = None
+def maybe_add_image_to_scene(group, candidates):
+    global _bitmap_file
+    if _bitmap_file:
+        _bitmap_file.close()
+        _bitmap_file = None
+    for c in candidates:
+        try:
+            f = _bitmap_file = open(c, 'rb')
+            print("using", c)
+            bitmap = displayio.OnDiskBitmap(f)
+
+            # Create a TileGrid to hold the bitmap
+            tile_grid = displayio.TileGrid(bitmap,
+                    pixel_shader=displayio.ColorConverter())
+
+            # Add the TileGrid to the Group
+            group.append(tile_grid)
+            print(tile_grid)
+        except OSError as e:
+            continue
+
 def play_one_file(speaker, idx, filename, folder, title, next_title):
+    board.DISPLAY.auto_refresh = False
     font = terminalio.FONT
     glyph_width, glyph_height = font.get_bounding_box()
 
-    scene = displayio.Group(max_size=3)
+    scene = displayio.Group(max_size=4)
+
+    maybe_add_image_to_scene(scene, [
+            filename.rsplit('.', 1)[0] + ".bmp",
+            filename.rsplit('/', 1)[0] + ".bmp"])
 
     text = adafruit_display_text.label.Label(font, text=
         "%s\n\nNow playing:\n%s\n\nNext up:\n%s" % (folder, title, next_title))
@@ -174,6 +202,7 @@ def play_one_file(speaker, idx, filename, folder, title, next_title):
     scene.append(progress)
 
     board.DISPLAY.show(scene)
+    board.DISPLAY.refresh()
 
     result = idx + 1
     wait_no_button_pressed()
