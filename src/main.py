@@ -1,3 +1,4 @@
+import adafruit_bitmap_font.bitmap_font
 import adafruit_display_text.label
 import bar
 import adafruit_sdcard
@@ -19,6 +20,9 @@ import repeat
 import storage
 import terminalio
 import time
+
+font = adafruit_bitmap_font.bitmap_font.load_font("rsrc/5x8.bdf")
+
 
 adc_vbat = analogio.AnalogIn(board.A6)
 scale_vbat = 2 * adc_vbat.reference_voltage / 65535
