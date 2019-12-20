@@ -28,5 +28,4 @@ class Bar(displayio.TileGrid):
         j = round(newvalue * self._width)
         for i in range(self._width):
             self[i] = i <= j
-        print("bar", newvalue, j, self[0], self[self._width // 2], self[self._width-1])
     
