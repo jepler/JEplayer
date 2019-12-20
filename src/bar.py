@@ -25,7 +25,7 @@ class Bar(displayio.TileGrid):
     @value.setter
     def value(self, newvalue):
         self._value = newvalue
-        j = round(newvalue * self._width)
+        j = newvalue * self._width - .5
         for i in range(self._width):
             self[i] = i <= j
     
