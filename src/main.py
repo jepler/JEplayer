@@ -32,11 +32,24 @@ BUTTON_START = const(4)
 BUTTON_A = const(2)
 BUTTON_B = const(1)
 
+
+try:
+    board.DISPLAY.rotation = 0
+except AttributeError:
+    pass
+
 joystick = analogjoy.AnalogJoystick()
-up_key = repeat.KeyRepeat(lambda: joystick.up, rate=0.2)
-down_key = repeat.KeyRepeat(lambda: joystick.down, rate=0.2)
-left_key = repeat.KeyRepeat(lambda: joystick.left, rate=0.2)
-right_key = repeat.KeyRepeat(lambda: joystick.right, rate=0.2)
+
+if board.DISPLAY.rotation == 270:
+    up_key = repeat.KeyRepeat(lambda: joystick.up, rate=0.2)
+    down_key = repeat.KeyRepeat(lambda: joystick.down, rate=0.2)
+    left_key = repeat.KeyRepeat(lambda: joystick.left, rate=0.2)
+    right_key = repeat.KeyRepeat(lambda: joystick.right, rate=0.2)
+else:
+    left_key = repeat.KeyRepeat(lambda: joystick.up, rate=0.2)
+    right_key = repeat.KeyRepeat(lambda: joystick.down, rate=0.2)
+    down_key = repeat.KeyRepeat(lambda: joystick.left, rate=0.2)
+    up_key = repeat.KeyRepeat(lambda: joystick.right, rate=0.2)
 
 buttons = gamepadshift.GamePadShift(digitalio.DigitalInOut(board.BUTTON_CLOCK),
                                     digitalio.DigitalInOut(board.BUTTON_OUT),
