@@ -89,10 +89,10 @@ def shuffle(seq):
 def clear_display():
     board.DISPLAY.show(displayio.Group(max_size=1))
 
-def menu_choice(seq, button_ok, button_cancel, *, sel_idx=0, font=terminalio.FONT):
+def menu_choice(seq, button_ok, button_cancel, *, sel_idx=0, font=font):
     board.DISPLAY.auto_refresh = True
     scroll_idx = sel_idx
-    glyph_width, glyph_height = font.get_bounding_box()
+    glyph_width, glyph_height = font.get_bounding_box()[:2]
     num_rows = min(len(seq), board.DISPLAY.height // glyph_height)
     max_glyphs = board.DISPLAY.width // glyph_width
     labels = [adafruit_display_text.label.Label(font, max_glyphs=max_glyphs)
@@ -195,8 +195,7 @@ def maybe_add_image_to_scene(group, candidates):
 
 def play_one_file(speaker, idx, filename, folder, title, next_title):
     board.DISPLAY.auto_refresh = False
-    font = terminalio.FONT
-    glyph_width, glyph_height = font.get_bounding_box()
+    glyph_width, glyph_height = font.get_bounding_box()[:2]
 
     scene = displayio.Group(max_size=4)
 
