@@ -21,8 +21,21 @@ import storage
 import terminalio
 import time
 
+enable = digitalio.DigitalInOut(board.SPEAKER_ENABLE)
+enable.direction = digitalio.Direction.OUTPUT
+enable.value = True
+speaker = audioio.AudioOut(board.SPEAKER, right_channel=board.A1)
+mp3stream = audiomp3.MP3File(open("/rsrc/splash.mp3", "rb"))
+
 font = adafruit_bitmap_font.bitmap_font.load_font("rsrc/5x8.bdf")
 
+speaker.play(mp3stream)
+
+def change_stream(filename):
+    old_stream = mp3stream.file
+    mp3stream.file = open(filename, "rb")
+    old_stream.close()
+    return mp3stream.file
 
 adc_vbat = analogio.AnalogIn(board.A6)
 scale_vbat = 2 * adc_vbat.reference_voltage / 65535
@@ -172,7 +185,7 @@ def average_temperature(n=20):
     return sum(microcontroller.cpu.temperature for i in range(n)) / n
 
 _bitmap_file = None
-def maybe_add_image_to_scene(group, candidates):
+def maybe_add_image_to_scene(group, candidates, x=0, y=0):
     global _bitmap_file
     if _bitmap_file:
         _bitmap_file.close()
@@ -180,7 +193,6 @@ def maybe_add_image_to_scene(group, candidates):
     for c in candidates:
         try:
             f = _bitmap_file = open(c, 'rb')
-            print("using", c)
             bitmap = displayio.OnDiskBitmap(f)
 
             # Create a TileGrid to hold the bitmap
@@ -189,7 +201,9 @@ def maybe_add_image_to_scene(group, candidates):
 
             # Add the TileGrid to the Group
             group.append(tile_grid)
-            print(tile_grid)
+            tile_grid.x = x
+            tile_grid.y = y
+            return
         except OSError as e:
             continue
 
@@ -199,23 +213,19 @@ def play_one_file(speaker, idx, filename, folder, title, next_title):
 
     scene = displayio.Group(max_size=4)
 
-    maybe_add_image_to_scene(scene, [
+    bitmap = maybe_add_image_to_scene(scene, [
             filename.rsplit('.', 1)[0] + ".bmp",
-            filename.rsplit('/', 1)[0] + ".bmp"])
-
-    text = adafruit_display_text.label.Label(font, text=
-        "%s\n\nNow playing:\n%s\n\nNext up:\n%s" % (folder, title, next_title))
-    text.x = 0
-    text.y = board.DISPLAY.height//2
-    scene.append(text)
-
-    info = adafruit_display_text.label.Label(terminalio.FONT, max_glyphs=32)
-    info.x = 0
-    info.y = board.DISPLAY.height - glyph_height // 2
-    scene.append(info)
+            filename.rsplit('/', 1)[0] + ".bmp",
+            '/rsrc/background.bmp'], y=glyph_height*2)
 
     progress = bar.Bar(0, 0, board.DISPLAY.width, glyph_height, colors=(0x0000ff, None))
     scene.append(progress)
+
+    text = adafruit_display_text.label.Label(font, line_spacing=1.0, text=
+        "%s\n%s" % (folder, title))
+    text.x = 0
+    text.y = 6
+    scene.append(text)
 
     board.DISPLAY.show(scene)
     board.DISPLAY.refresh()
@@ -224,44 +234,47 @@ def play_one_file(speaker, idx, filename, folder, title, next_title):
     wait_no_button_pressed()
     paused = False
     sz = os.stat(filename)[6]
-    with open(filename, "rb") as f, audiomp3.MP3File(f) as mp3:
-        speaker.play(mp3)
-        while speaker.playing:
+    f = change_stream(filename)
+    speaker.play(mp3stream)
+    board.DISPLAY.auto_refresh = True
+    while speaker.playing:
 
-            gc.collect()
-            free = gc.mem_free()
-            vbat = adc_vbat.value * scale_vbat
-            temp = average_temperature()
-            info.text = ("%6db    %3.1fv    % 2.0fC" % (free, vbat, temp))[:32]
+        gc.collect()
 
-            progress.value = f.tell() / sz
+        progress.value = f.tell() / sz
 
-            pressed = buttons.get_pressed()
-            # SEL: cancel playlist
-            if pressed & BUTTON_SEL:
-                result = -1
-                break
-            # START: play/pause
-            if pressed & BUTTON_START:
-                wait_no_button_pressed()
-                if paused:
-                    speaker.resume()
-                    paused = False
-                else:
-                    speaker.pause()
-                    paused = True
-                wait_no_button_pressed()
-            # A: previous track
-            if pressed & BUTTON_B:
-                result = idx - 1
-                break
-            # B: next track
-            if pressed & BUTTON_A:
-                result = idx + 1
-                break
-                
-            time.sleep(1/15)
+        pressed = buttons.get_pressed()
+        # SEL: cancel playlist
+        if pressed & BUTTON_SEL:
+            result = -1
+            break
+        # START: play/pause
+        if pressed & BUTTON_START:
+            wait_no_button_pressed()
+            if paused:
+                speaker.resume()
+                paused = False
+            else:
+                speaker.pause()
+                paused = True
+            wait_no_button_pressed()
+        # A: previous track
+        if pressed & BUTTON_B:
+            result = idx - 1
+            break
+        # B: next track
+        if pressed & BUTTON_A:
+            result = idx + 1
+            break
+            
+        time.sleep(1/15)
+    speaker.stop()
+ 
     clear_display()
+    if bitmap is not None:
+        bitmap.deinit()
+    gc.collect()
+
     return result
 
 def play_all(playlist, *, folder='', trim=0, dir='/sd'):
@@ -269,10 +282,6 @@ def play_all(playlist, *, folder='', trim=0, dir='/sd'):
     # This will be fixed in the next release, but for now you can
     # uncomment the next line and delete the one after it
     #with audioio.AudioOut(board.SPEAKER) as speaker, \
-    with audioio.AudioOut(board.SPEAKER, right_channel=board.A1) as speaker, \
-            digitalio.DigitalInOut(board.SPEAKER_ENABLE) as enable:
-        enable.direction = digitalio.Direction.OUTPUT
-        enable.value = True
         i = 0
         while i >= 0 and i < len(playlist):
             f = playlist[i]
@@ -294,7 +303,20 @@ def play_folder(dir):
     trim = longest_common_prefix(playlist)
     play_all(playlist, folder=dir.split('/')[-1], trim=trim, dir=dir)
 
-mount_sd()
+try:
+    mount_sd()
+except OSError as detail:
+    t = adafruit_display_text.label.Label(font,
+        text="%s\n\nInsert or re-seat\nSD card\nthen press reset"
+            % detail.args[0])
+    t.x = 8
+    t.y = board.DISPLAY.height // 2
+    g = displayio.Group()
+    g.append(t)
+    board.DISPLAY.show(g)
+    while True:
+        time.sleep(1)
+
 while True:
     folder = choose_folder()
     clear_display()
