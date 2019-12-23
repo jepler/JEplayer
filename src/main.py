@@ -21,15 +21,80 @@ import storage
 import terminalio
 import time
 
+def clear_display():
+    board.DISPLAY.show(displayio.Group(max_size=1))
+
+clear_display()
+
+class PlaybackDisplay:
+    def __init__(self):
+        self.group = displayio.Group(max_size=4)
+        self.glyph_width, self.glyph_height = font.get_bounding_box()[:2]
+        self.pbar = bar.Bar(0, 0, board.DISPLAY.width,
+                self.glyph_height, colors=(0x0000ff, None))
+        self.label = adafruit_display_text.label.Label(font, line_spacing=1.0,
+                max_glyphs=256)
+        self.label.y = 6
+        self._bitmap_filename = None
+        self._fallback_bitmap = ["/rsrc/background.bmp"]
+        self.set_bitmap([])
+        self.group.append(self.pbar)
+        self.group.append(self.label)
+
+    @property
+    def text(self):
+        return self._text
+
+    @text.setter
+    def text(self, text):
+        if len(text) > 256: text = text[:256]
+        self._text = text
+        self.label.text = text
+
+    @property
+    def progress(self):
+        return self.pbar.value
+
+    @progress.setter
+    def progress(self, frac):
+        self.pbar.value = frac
+
+    def set_bitmap(self, candidates):
+        for c in candidates + self._fallback_bitmap:
+            if c == self._bitmap_filename:
+                print("used loaded bitmap yay")
+                return # Already loaded
+            try:
+                f = _bitmap_file = open(c, 'rb')
+            except OSError as e:
+                continue
+            bitmap = displayio.OnDiskBitmap(f)
+            self._bitmap_filename = c
+            # Create a TileGrid to hold the bitmap
+            self.tile_grid = displayio.TileGrid(bitmap,
+                    pixel_shader=displayio.ColorConverter())
+
+            # Add the TileGrid to the Group
+            if len(self.group) == 0:
+                self.group.append(self.tile_grid)
+            else:
+                self.group[0] = self.tile_grid
+            print(list(self.group))
+            self.tile_grid.x = 0
+            self.tile_grid.y = self.glyph_height*2
+            break
+
 enable = digitalio.DigitalInOut(board.SPEAKER_ENABLE)
 enable.direction = digitalio.Direction.OUTPUT
 enable.value = True
 speaker = audioio.AudioOut(board.SPEAKER, right_channel=board.A1)
 mp3stream = audiomp3.MP3File(open("/rsrc/splash.mp3", "rb"))
+speaker.play(mp3stream)
 
 font = adafruit_bitmap_font.bitmap_font.load_font("rsrc/5x8.bdf")
-
-speaker.play(mp3stream)
+playback_display = PlaybackDisplay()
+board.DISPLAY.show(playback_display.group)
+font.load_glyphs(range(32, 128))
 
 def change_stream(filename):
     old_stream = mp3stream.file
@@ -98,9 +163,6 @@ def shuffle(seq):
     for i in range(len(seq)-2):
         j = random.randint(i, len(seq)-1)
         seq[i], seq[j] = seq[j], seq[i]
-
-def clear_display():
-    board.DISPLAY.show(displayio.Group(max_size=1))
 
 def menu_choice(seq, button_ok, button_cancel, *, sel_idx=0, font=font):
     board.DISPLAY.auto_refresh = True
@@ -185,49 +247,15 @@ def average_temperature(n=20):
     return sum(microcontroller.cpu.temperature for i in range(n)) / n
 
 _bitmap_file = None
-def maybe_add_image_to_scene(group, candidates, x=0, y=0):
-    global _bitmap_file
-    if _bitmap_file:
-        _bitmap_file.close()
-        _bitmap_file = None
-    for c in candidates:
-        try:
-            f = _bitmap_file = open(c, 'rb')
-            bitmap = displayio.OnDiskBitmap(f)
-
-            # Create a TileGrid to hold the bitmap
-            tile_grid = displayio.TileGrid(bitmap,
-                    pixel_shader=displayio.ColorConverter())
-
-            # Add the TileGrid to the Group
-            group.append(tile_grid)
-            tile_grid.x = x
-            tile_grid.y = y
-            return
-        except OSError as e:
-            continue
-
 def play_one_file(speaker, idx, filename, folder, title, next_title):
     board.DISPLAY.auto_refresh = False
-    glyph_width, glyph_height = font.get_bounding_box()[:2]
 
-    scene = displayio.Group(max_size=4)
-
-    bitmap = maybe_add_image_to_scene(scene, [
+    playback_display.set_bitmap([
             filename.rsplit('.', 1)[0] + ".bmp",
-            filename.rsplit('/', 1)[0] + ".bmp",
-            '/rsrc/background.bmp'], y=glyph_height*2)
+            filename.rsplit('/', 1)[0] + ".bmp"])
 
-    progress = bar.Bar(0, 0, board.DISPLAY.width, glyph_height, colors=(0x0000ff, None))
-    scene.append(progress)
+    playback_display.text = "%s\n%s" % (folder, title)
 
-    text = adafruit_display_text.label.Label(font, line_spacing=1.0, text=
-        "%s\n%s" % (folder, title))
-    text.x = 0
-    text.y = 6
-    scene.append(text)
-
-    board.DISPLAY.show(scene)
     board.DISPLAY.refresh()
 
     result = idx + 1
@@ -241,7 +269,7 @@ def play_one_file(speaker, idx, filename, folder, title, next_title):
 
         gc.collect()
 
-        progress.value = f.tell() / sz
+        playback_display.progress = f.tell() / sz
 
         pressed = buttons.get_pressed()
         # SEL: cancel playlist
@@ -270,26 +298,22 @@ def play_one_file(speaker, idx, filename, folder, title, next_title):
         time.sleep(1/15)
     speaker.stop()
  
-    clear_display()
-    if bitmap is not None:
-        bitmap.deinit()
     gc.collect()
 
     return result
 
 def play_all(playlist, *, folder='', trim=0, dir='/sd'):
-    # In 5.0a1, stereo playback on samd dac doesn't work due to a bug
-    # This will be fixed in the next release, but for now you can
-    # uncomment the next line and delete the one after it
-    #with audioio.AudioOut(board.SPEAKER) as speaker, \
-        i = 0
-        while i >= 0 and i < len(playlist):
-            f = playlist[i]
-            next_up = (playlist[i+1][trim:-4]
-                        if i+1 < len(playlist) else "(the end)")
-            i = play_one_file(speaker, i, join(dir, f), folder, f[trim:-4], next_up)
-        speaker.stop()
-
+    i = 0
+    board.DISPLAY.show(playback_display.group)
+    for g in playback_display.group: print(g)
+    while i >= 0 and i < len(playlist):
+        f = playlist[i]
+        next_up = (playlist[i+1][trim:-4]
+                    if i+1 < len(playlist) else "(the end)")
+        i = play_one_file(speaker, i, join(dir, f), folder, f[trim:-4], next_up)
+    speaker.stop()
+    clear_display()
+    
 def longest_common_prefix(seq):
     seq0 = seq[0]
     for i in range(0, len(seq0)):
@@ -317,8 +341,10 @@ except OSError as detail:
     while True:
         time.sleep(1)
 
+while speaker.playing:
+    time.sleep(.01)
+
 while True:
     folder = choose_folder()
-    clear_display()
     play_folder(folder)
 
