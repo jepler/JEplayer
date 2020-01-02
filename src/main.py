@@ -107,7 +107,7 @@ class PlaybackDisplay:
 
 enable = digitalio.DigitalInOut(board.SPEAKER_ENABLE)
 enable.direction = digitalio.Direction.OUTPUT
-enable.value = False
+enable.value = True
 speaker = audioio.AudioOut(board.SPEAKER, right_channel=board.A1)
 mp3stream = audiomp3.MP3File(open("/rsrc/splash.mp3", "rb"))
 speaker.play(mp3stream)
@@ -207,6 +207,7 @@ def menu_choice(seq, button_ok, button_cancel, *, sel_idx=0, font=font):
     buttons.get_pressed() # Clear out anything from before now
     i = 0
     while True:
+        enable.value = speaker.playing
         pressed = buttons.get_pressed()
         if button_cancel and (pressed & button_cancel): return -1
         if pressed & button_ok: return sel_idx
