@@ -14,6 +14,7 @@ import displayio
 import gamepadshift
 import gc
 import microcontroller
+import neopixel
 import os
 import random
 import repeat
@@ -26,6 +27,9 @@ def clear_display():
 
 board.DISPLAY.rotation = 0
 clear_display()
+
+def px(x, y):
+    return 0 if x <= 0 else round(x / y)
 
 class PlaybackDisplay:
     def __init__(self):
@@ -41,6 +45,10 @@ class PlaybackDisplay:
         self.set_bitmap([])
         self.group.append(self.pbar)
         self.group.append(self.label)
+        self.pixels = neopixel.NeoPixel(board.NEOPIXEL, 5)
+        self.pixels.auto_write = False
+        self.pixels.fill(0)
+        self.pixels.show()
 
     @property
     def text(self):
@@ -84,6 +92,20 @@ class PlaybackDisplay:
             self.tile_grid.x = 0
             self.tile_grid.y = self.glyph_height*2
             break
+
+    @property
+    def rms(self):
+        return self._rms
+
+    @rms.setter
+    def rms(self, value):
+        self._rms = value
+        self.pixels[0] = (20, 0, 0) if value > 20 else (px(value, 1), 0, 0)
+        self.pixels[1] = (20, 0, 0) if value > 40 else (px(value - 20, 1), 0, 0)
+        self.pixels[2] = (20, 0, 0) if value > 80 else (px(value - 40, 2), 0, 0)
+        self.pixels[3] = (20, 0, 0) if value > 160 else (px(value - 80, 4), 0, 0)
+        self.pixels[4] = (20, 0, 0) if value > 320 else (px(value - 160, 8), 0, 0)
+        self.pixels.show()
 
 enable = digitalio.DigitalInOut(board.SPEAKER_ENABLE)
 enable.direction = digitalio.Direction.OUTPUT
@@ -255,6 +277,7 @@ def play_one_file(speaker, idx, filename, folder, title, next_title):
 
         gc.collect()
 
+        playback_display.rms = mp3stream.rms_level
         playback_display.progress = f.tell() / sz
 
         pressed = buttons.get_pressed()
@@ -269,6 +292,7 @@ def play_one_file(speaker, idx, filename, folder, title, next_title):
                 speaker.resume()
                 paused = False
             else:
+                playback_display.rms = 0
                 speaker.pause()
                 paused = True
             wait_no_button_pressed()
@@ -281,8 +305,8 @@ def play_one_file(speaker, idx, filename, folder, title, next_title):
             result = idx + 1
             break
             
-        time.sleep(1/15)
     speaker.stop()
+    playback_display.rms = 0
  
     gc.collect()
 
