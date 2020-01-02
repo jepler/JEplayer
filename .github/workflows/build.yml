@@ -1,0 +1,35 @@
+name: Build CI
+
+on:
+  push:
+  pull_request:
+  release:
+    types: [published]
+  check_suite:
+    types: [rerequested]
+jobs:
+  test:
+    runs-on: ubuntu-16.04
+    steps:
+    - name: Dump GitHub context
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+      run: echo "$GITHUB_CONTEXT"
+    - uses: actions/setup-python@v1
+      with:
+        python-version: 3.5
+    - uses: actions/checkout@v1
+      with:
+        submodules: true
+    - name: set up build environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install python3-venv build-essential gettext
+        make venv
+    - name: build
+      run: make cp
+    - uses: actions/upload-artifact@v1.0.0
+      with:
+        name: JEplayer
+        path: CIRCUITPY
+
