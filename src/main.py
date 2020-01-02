@@ -221,6 +221,7 @@ def choose_folder(base='/sd'):
 
     idx = menu_choice(choices,
             BUTTON_START | BUTTON_A | BUTTON_B | BUTTON_SEL, 0)
+    clear_display()
     if idx >= 1: result = all_folders[idx-1]
     else: result = random.choice(all_folders)
     return join(base, result)
