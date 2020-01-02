@@ -310,6 +310,11 @@ def longest_common_prefix(seq):
 def play_folder(dir):
     print("play_folder", dir)
     playlist = [d for d in os.listdir(dir) if d.lower().endswith('.mp3')]
+    if not playlist:
+        # hmm, no mp3s in a folder?  Well, don't crash okay?
+        del playlist
+        gc.collect()
+        return
     trim = longest_common_prefix(playlist)
     enable.value = True
     play_all(playlist, folder=dir.split('/')[-1], trim=trim, dir=dir)
