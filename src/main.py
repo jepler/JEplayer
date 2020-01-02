@@ -71,7 +71,6 @@ class PlaybackDisplay:
     def set_bitmap(self, candidates):
         for c in candidates + self._fallback_bitmap:
             if c == self._bitmap_filename:
-                print("used loaded bitmap yay")
                 return # Already loaded
             try:
                 f = _bitmap_file = open(c, 'rb')
@@ -88,7 +87,6 @@ class PlaybackDisplay:
                 self.group.append(self.tile_grid)
             else:
                 self.group[0] = self.tile_grid
-            print(list(self.group))
             self.tile_grid.x = 0
             self.tile_grid.y = self.glyph_height*2
             break
@@ -315,7 +313,6 @@ def play_one_file(speaker, idx, filename, folder, title, next_title):
 def play_all(playlist, *, folder='', trim=0, dir='/sd'):
     i = 0
     board.DISPLAY.show(playback_display.group)
-    for g in playback_display.group: print(g)
     while i >= 0 and i < len(playlist):
         f = playlist[i]
         next_up = (playlist[i+1][trim:-4]
@@ -332,7 +329,6 @@ def longest_common_prefix(seq):
     return len(seq0)
 
 def play_folder(dir):
-    print("play_folder", dir)
     playlist = [d for d in os.listdir(dir) if d.lower().endswith('.mp3')]
     if not playlist:
         # hmm, no mp3s in a folder?  Well, don't crash okay?
