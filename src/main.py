@@ -24,6 +24,7 @@ import time
 def clear_display():
     board.DISPLAY.show(displayio.Group(max_size=1))
 
+board.DISPLAY.rotation = 0
 clear_display()
 
 class PlaybackDisplay:
@@ -110,11 +111,6 @@ BUTTON_START = const(4)
 BUTTON_A = const(2)
 BUTTON_B = const(1)
 
-
-try:
-    board.DISPLAY.rotation = 0
-except AttributeError:
-    pass
 
 joystick = analogjoy.AnalogJoystick()
 
