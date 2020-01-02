@@ -213,17 +213,6 @@ def menu_choice(seq, button_ok, button_cancel, *, sel_idx=0, font=font):
 
         time.sleep(1/20)
 
-def choose_mp3s():
-    all_mp3s = sorted(m for m in os.listdir('/sd') if m.lower().endswith(".mp3"))
-    choices = (['Play All', 'Shuffle All'] +
-        [i[:-4].replace("_", " ") for i in all_mp3s])
-
-    idx = menu_choice(choices, BUTTON_START | BUTTON_A | BUTTON_B, BUTTON_SEL)
-    if idx < 0: return []
-    if idx >= 2: return [all_mp3s[idx-2]]
-    if idx == 1: shuffle(all_mp3s)
-    return all_mp3s
-
 S_IFDIR = const(16384)
 def isdir(x): return os.stat(x)[0] & S_IFDIR
 def choose_folder(base='/sd'):
