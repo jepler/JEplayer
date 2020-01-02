@@ -334,9 +334,6 @@ except OSError as detail:
     while True:
         time.sleep(1)
 
-while speaker.playing:
-    time.sleep(.01)
-
 while True:
     folder = choose_folder()
     play_folder(folder)
