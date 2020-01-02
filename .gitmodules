@@ -7,3 +7,9 @@
 [submodule "lib/Adafruit_CircuitPython_Display_Text"]
 	path = lib/Adafruit_CircuitPython_Display_Text
 	url = https://github.com/adafruit/Adafruit_CircuitPython_Display_Text
+[submodule "lib/Adafruit_CircuitPython_Bitmap_Font"]
+	path = lib/Adafruit_CircuitPython_Bitmap_Font
+	url = https://github.com/adafruit/Adafruit_CircuitPython_Bitmap_Font
+[submodule "lib/Adafruit_CircuitPython_NeoPixel"]
+	path = lib/Adafruit_CircuitPython_NeoPixel
+	url = https://github.com/adafruit/Adafruit_CircuitPython_NeoPixel
