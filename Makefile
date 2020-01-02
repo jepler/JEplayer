@@ -11,10 +11,10 @@ install: cp
 .PHONY: dist
 dist: cp
 	# This seems to be the easiest way to get the zip to have the desired top-level name
-	cp -r CIRCUITPY pyrockout
-	rm -f pyrockout.zip
-	zip -9r pyrockout.zip pyrockout
-	rm -rf pyrockout
+	cp -r CIRCUITPY JEplayer
+	rm -f JEplayer.zip
+	zip -9r JEplayer.zip JEplayer
+	rm -rf JEplayer
 
 .PHONY: clean
 clean:
