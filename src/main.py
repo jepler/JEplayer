@@ -339,6 +339,7 @@ def play_folder(dir):
         del playlist
         gc.collect()
         return
+    playlist.sort()
     trim = longest_common_prefix(playlist)
     enable.value = True
     play_all(playlist, folder=dir.split('/')[-1], trim=trim, dir=dir)
