@@ -87,7 +87,7 @@ class PlaybackDisplay:
 
 enable = digitalio.DigitalInOut(board.SPEAKER_ENABLE)
 enable.direction = digitalio.Direction.OUTPUT
-enable.value = True
+enable.value = False
 speaker = audioio.AudioOut(board.SPEAKER, right_channel=board.A1)
 mp3stream = audiomp3.MP3File(open("/rsrc/splash.mp3", "rb"))
 speaker.play(mp3stream)
@@ -321,7 +321,9 @@ def play_folder(dir):
     print("play_folder", dir)
     playlist = [d for d in os.listdir(dir) if d.lower().endswith('.mp3')]
     trim = longest_common_prefix(playlist)
+    enable.value = True
     play_all(playlist, folder=dir.split('/')[-1], trim=trim, dir=dir)
+    enable.value = False
 
 try:
     mount_sd()
