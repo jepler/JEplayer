@@ -8,11 +8,9 @@ mpy_cross(".venv/bin/mpy-cross", "master")
 def match(dest, content):
     if not os.path.exists(dest): return False
     with open(dest, "rb") as f: destcontent = f.read()
-    print("# MATCH?", dest, repr(content[:8]), repr(destcontent[:8]), content == destcontent)
     return content == destcontent
 
 def copy(destdir, srcdir, name, *, destname=None):
-    print("# COPY", destdir, name)
     if destname is None: destname = name
     src = os.path.join(srcdir, name)
     dest = os.path.join(destdir, destname)
@@ -20,7 +18,6 @@ def copy(destdir, srcdir, name, *, destname=None):
     put(dest, content)
 
 def mpy_compile(destdir, srcdir, name, *, destname=None):
-    print("# CROSS", destdir, name)
     if destname is None: destname = os.path.splitext(name)[0] + ".mpy"
     desttemp = os.path.join(destdir, destname + ".tmp")
     dest = os.path.join(destdir, destname)
@@ -28,10 +25,8 @@ def mpy_compile(destdir, srcdir, name, *, destname=None):
             os.path.join(srcdir, name)], check=True)
     with open(desttemp, "rb") as f: newcontent = f.read()
     if not match(dest, newcontent):
-        print("# rename", desttemp, dest)
         os.rename(desttemp, dest)
     else:
-        print("# unlink", desttemp)
         os.unlink(desttemp)
 
 def put(dest, content):
@@ -42,13 +37,11 @@ DSTPATH = 'CIRCUITPY'
 
 for dirpath, dirnames, filenames in os.walk('src', followlinks=True):
     outpath = os.path.join(DSTPATH, os.path.relpath(dirpath, SRCPATH))
-    print(outpath)
     os.makedirs(outpath, exist_ok=True)
 
     for f in filenames:
         if f.startswith('.'): continue
         if dirpath == SRCPATH and f in ('code.py', 'main.py'):
-            print("REALMAIN")
             mpy_compile(outpath, dirpath, f, destname="realmain.mpy")
         elif f.endswith('.py'): mpy_compile(outpath, dirpath, f)
         else: copy(outpath, dirpath, f)
