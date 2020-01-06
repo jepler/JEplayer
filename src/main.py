@@ -38,6 +38,7 @@ import bar
 import adafruit_sdcard
 import analogjoy
 import audioio
+import audiomixer
 import audiomp3
 import board
 import busio
@@ -141,13 +142,40 @@ class PlaybackDisplay:
         self.pixels[4] = (20, 0, 0) if value > 320 else (px(value - 160, 8), 0, 0)
         self.pixels.show()
 
+mixer = None
+mixer_properties = None
+def change_voice(voice):
+    """Change the mixer to use a different voice.  May reinitialize the global mixer object."""
+    global mixer, mixer_properties
+    key = (voice.sample_rate, voice.channel_count)
+    if mixer_properties != key:
+        if mixer is not None:
+            mixer.voice[0].stop()
+        print("initialize mixer", *key)
+        mixer_properties = key
+        del mixer
+        speaker.stop()
+        gc.collect()
+        mixer = audiomixer.Mixer(sample_rate = voice.sample_rate, channel_count = voice.channel_count, buffer_size=1152*4)
+        mixer.voice[0].level = 0.75
+        speaker.play(mixer)
+        mixer.voice[0].play(voice)
+        print(speaker.playing)
+        print(mixer.voice[0].playing)
+    else:
+        print("reuse mixer")
+        if not mixer.playing:
+            print("play mixer")
+            speaker.play(mixer)
+        mixer.voice[0].play(voice)
+
 # pylint: disable=invalid-name
 enable = digitalio.DigitalInOut(board.SPEAKER_ENABLE)
 enable.direction = digitalio.Direction.OUTPUT
 enable.value = True
 speaker = audioio.AudioOut(board.SPEAKER, right_channel=board.A1)
 mp3stream = audiomp3.MP3Decoder(open("/rsrc/splash.mp3", "rb"))
-speaker.play(mp3stream)
+change_voice(mp3stream)
 
 font = adafruit_bitmap_font.bitmap_font.load_font("rsrc/5x8.bdf")
 playback_display = PlaybackDisplay()
@@ -305,13 +333,14 @@ def play_one_file(idx, filename, folder, title):
     paused = False
     file_size = os.stat(filename)[6]
     mp3file = change_stream(filename)
-    speaker.play(mp3stream)
+    change_voice(mp3stream)
+    print("speaker playing", speaker.playing, "voice playing", mixer.voice[0].playing)
     board.DISPLAY.auto_refresh = True
-    while speaker.playing:
+    while mixer.voice[0].playing:
 
         gc.collect()
 
-        playback_display.rms = mp3stream.rms_level
+        #playback_display.rms = mp3stream.rms_level
         playback_display.progress = mp3file.tell() / file_size
 
         pressed = buttons.get_pressed()
@@ -339,7 +368,7 @@ def play_one_file(idx, filename, folder, title):
             result = idx + 1
             break
 
-    speaker.stop()
+    mixer.voice[0].stop()
     playback_display.rms = 0
 
     gc.collect()
