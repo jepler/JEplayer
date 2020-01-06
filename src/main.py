@@ -1,10 +1,42 @@
+# The MIT License (MIT)
+#
+# Copyright (c) 2020 Jeff Epler for Adafruit Industries LLC
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+"""
+jeplayer - main file
+
+This is an MP3 player for the PyGamer with CircuitPython.
+
+See README.md for more information.
+"""
+
+import gc
+import os
+import random
+import time
+
 import adafruit_bitmap_font.bitmap_font
 import adafruit_display_text.label
 import bar
 import adafruit_sdcard
 import analogjoy
-import analogio
-import audiocore
 import audioio
 import audiomp3
 import board
@@ -12,33 +44,33 @@ import busio
 import digitalio
 import displayio
 import gamepadshift
-import gc
-import microcontroller
 import neopixel
-import os
-import random
 import repeat
 import storage
-import terminalio
-import time
+from micropython import const
 
 def clear_display():
+    """Display nothing"""
     board.DISPLAY.show(displayio.Group(max_size=1))
 
 board.DISPLAY.rotation = 0
 clear_display()
 
+# pylint: disable=invalid-name
 def px(x, y):
+    """Convert a raw value (x/y) to a pixel value, clamping negative values"""
     return 0 if x <= 0 else round(x / y)
+# pylint: enable=invalid-name
 
 class PlaybackDisplay:
+    """Manage display during playback"""
     def __init__(self):
         self.group = displayio.Group(max_size=4)
         self.glyph_width, self.glyph_height = font.get_bounding_box()[:2]
         self.pbar = bar.Bar(0, 0, board.DISPLAY.width,
-                self.glyph_height, colors=(0x0000ff, None))
+                            self.glyph_height, colors=(0x0000ff, None))
         self.label = adafruit_display_text.label.Label(font, line_spacing=1.0,
-                max_glyphs=256)
+                                                       max_glyphs=256)
         self.label.y = 6
         self._bitmap_filename = None
         self._fallback_bitmap = ["/rsrc/background.bmp"]
@@ -52,16 +84,19 @@ class PlaybackDisplay:
 
     @property
     def text(self):
+        """The text shown at the top of the display.  Usually 2 lines."""
         return self._text
 
     @text.setter
     def text(self, text):
-        if len(text) > 256: text = text[:256]
+        if len(text) > 256:
+            text = text[:256]
         self._text = text
         self.label.text = text
 
     @property
     def progress(self):
+        """The fraction of progress through the current track"""
         return self.pbar.value
 
     @progress.setter
@@ -69,18 +104,18 @@ class PlaybackDisplay:
         self.pbar.value = frac
 
     def set_bitmap(self, candidates):
-        for c in candidates + self._fallback_bitmap:
-            if c == self._bitmap_filename:
+        """Find and use a background from among candidates, or else the fallback bitmap"""
+        for i in candidates + self._fallback_bitmap:
+            if i == self._bitmap_filename:
                 return # Already loaded
             try:
-                f = _bitmap_file = open(c, 'rb')
-            except OSError as e:
+                bitmap_file = open(i, 'rb')
+            except OSError:
                 continue
-            bitmap = displayio.OnDiskBitmap(f)
-            self._bitmap_filename = c
+            bitmap = displayio.OnDiskBitmap(bitmap_file)
+            self._bitmap_filename = i
             # Create a TileGrid to hold the bitmap
-            self.tile_grid = displayio.TileGrid(bitmap,
-                    pixel_shader=displayio.ColorConverter())
+            self.tile_grid = displayio.TileGrid(bitmap, pixel_shader=displayio.ColorConverter())
 
             # Add the TileGrid to the Group
             if len(self.group) == 0:
@@ -93,6 +128,7 @@ class PlaybackDisplay:
 
     @property
     def rms(self):
+        """The RMS audio level, used to control the neopixel vu meter"""
         return self._rms
 
     @rms.setter
@@ -105,6 +141,7 @@ class PlaybackDisplay:
         self.pixels[4] = (20, 0, 0) if value > 320 else (px(value - 160, 8), 0, 0)
         self.pixels.show()
 
+# pylint: disable=invalid-name
 enable = digitalio.DigitalInOut(board.SPEAKER_ENABLE)
 enable.direction = digitalio.Direction.OUTPUT
 enable.value = True
@@ -116,15 +153,6 @@ font = adafruit_bitmap_font.bitmap_font.load_font("rsrc/5x8.bdf")
 playback_display = PlaybackDisplay()
 board.DISPLAY.show(playback_display.group)
 font.load_glyphs(range(32, 128))
-
-def change_stream(filename):
-    old_stream = mp3stream.file
-    mp3stream.file = open(filename, "rb")
-    old_stream.close()
-    return mp3stream.file
-
-adc_vbat = analogio.AnalogIn(board.A6)
-scale_vbat = 2 * adc_vbat.reference_voltage / 65535
 
 BUTTON_SEL = const(8)
 BUTTON_START = const(4)
@@ -148,56 +176,46 @@ else:
 buttons = gamepadshift.GamePadShift(digitalio.DigitalInOut(board.BUTTON_CLOCK),
                                     digitalio.DigitalInOut(board.BUTTON_OUT),
                                     digitalio.DigitalInOut(board.BUTTON_LATCH))
+# pylint: enable=invalid-name
 
 def mount_sd():
+    """Mount the SD card"""
     spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
-    cs = digitalio.DigitalInOut(board.SD_CS)
-    sdcard = adafruit_sdcard.SDCard(spi, cs)
+    sd_cs = digitalio.DigitalInOut(board.SD_CS)
+    sdcard = adafruit_sdcard.SDCard(spi, sd_cs)
     vfs = storage.VfsFat(sdcard)
     storage.mount(vfs, "/sd")
 
-def join(base, *args):
-    for a in args: base = base + '/' + a
-    return base
+def join(*args):
+    """Like posixpath.join"""
+    return "/".join(args)
 
-def play_all(dir='/sd'):
-    with digitalio.DigitalInOut(board.SPEAKER_ENABLE) as enable:
-        enable.direction = digitalio.Direction.OUTPUT
-        enable.value = True
-        # In 5.0a1, stereo playback on samd dac doesn't work due to a bug
-        #with audioio.AudioOut(board.SPEAKER, right_channel=board.A1) as speaker:
-        with audioio.AudioOut(board.SPEAKER) as speaker:
-            for f in os.listdir(dir):
-                if f.lower().endswith('.mp3'):
-                    play_one_file(speaker, join(dir, f))
-
-def blank_screen():
-    displayio.release_displays()
-
-# https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle#The_modern_algorithm
 def shuffle(seq):
+    """Shuffle a sequence using the Fisher-Yates shuffle algorithm (like random.shuffle)"""
     for i in range(len(seq)-2):
         j = random.randint(i, len(seq)-1)
         seq[i], seq[j] = seq[j], seq[i]
 
-def menu_choice(seq, button_ok, button_cancel, *, sel_idx=0, font=font):
+# pylint: disable=too-many-locals
+def menu_choice(seq, button_ok, button_cancel, *, sel_idx=0, text_font=font):
+    """Display a menu and allow a choice from it"""
     board.DISPLAY.auto_refresh = True
     scroll_idx = sel_idx
-    glyph_width, glyph_height = font.get_bounding_box()[:2]
+    glyph_width, glyph_height = text_font.get_bounding_box()[:2]
     num_rows = min(len(seq), board.DISPLAY.height // glyph_height)
     max_glyphs = board.DISPLAY.width // glyph_width
-    labels = [adafruit_display_text.label.Label(font, max_glyphs=max_glyphs)
-                for i in range(num_rows)]
-    cursor = adafruit_display_text.label.Label(font, max_glyphs=1, color=0xddddff)
-    y0 = (glyph_height+1)//2
+    labels = [adafruit_display_text.label.Label(text_font, max_glyphs=max_glyphs)
+              for i in range(num_rows)]
+    cursor = adafruit_display_text.label.Label(text_font, max_glyphs=1, color=0xddddff)
+    base_y = (glyph_height+1)//2
     scene = displayio.Group(max_size=len(labels) + 1)
-    for i, li in enumerate(labels):
-        li.x = round(glyph_width * 1.5)
-        li.y = y0 + glyph_height * i
-        li.text = seq[i][:max_glyphs]
-        scene.append(li)
-    cursor.x = 0 
-    cursor.y = y0
+    for i, label in enumerate(labels):
+        label.x = round(glyph_width * 1.5)
+        label.y = base_y + glyph_height * i
+        label.text = seq[i][:max_glyphs]
+        scene.append(label)
+    cursor.x = 0
+    cursor.y = base_y
     cursor.text = ">"
     scene.append(cursor)
 
@@ -209,12 +227,16 @@ def menu_choice(seq, button_ok, button_cancel, *, sel_idx=0, font=font):
     while True:
         enable.value = speaker.playing
         pressed = buttons.get_pressed()
-        if button_cancel and (pressed & button_cancel): return -1
-        if pressed & button_ok: return sel_idx
+        if button_cancel and (pressed & button_cancel):
+            return -1
+        if pressed & button_ok:
+            return sel_idx
 
         joystick.poll()
-        if up_key.value: sel_idx -= 1
-        if down_key.value: sel_idx += 1
+        if up_key.value:
+            sel_idx -= 1
+        if down_key.value:
+            sel_idx += 1
 
         sel_idx = min(len(seq)-1, max(0, sel_idx))
 
@@ -230,36 +252,49 @@ def menu_choice(seq, button_ok, button_cancel, *, sel_idx=0, font=font):
             if new_text != labels[j].text:
                 labels[j].text = new_text
 
-        cursor.y = y0 + glyph_height * (sel_idx - scroll_idx)
+        cursor.y = base_y + glyph_height * (sel_idx - scroll_idx)
 
         time.sleep(1/20)
+# pylint: enable=too-many-locals
 
 S_IFDIR = const(16384)
-def isdir(x): return os.stat(x)[0] & S_IFDIR
+def isdir(x):
+    """Return True if 'x' is a directory"""
+    return os.stat(x)[0] & S_IFDIR
+
 def choose_folder(base='/sd'):
+    """Let the user choose a folder within a base directory"""
     all_folders = sorted(m for m in os.listdir(base) if isdir(join(base, m)))
     choices = ['Surprise Me'] + all_folders
 
     idx = menu_choice(choices,
-            BUTTON_START | BUTTON_A | BUTTON_B | BUTTON_SEL, 0)
+                      BUTTON_START | BUTTON_A | BUTTON_B | BUTTON_SEL, 0)
     clear_display()
-    if idx >= 1: result = all_folders[idx-1]
-    else: result = random.choice(all_folders)
+    if idx >= 1:
+        result = all_folders[idx-1]
+    else:
+        result = random.choice(all_folders)
     return join(base, result)
 
 def wait_no_button_pressed():
-    while buttons.get_pressed(): time.sleep(1/20)
+    """Wait until no button is pressed"""
+    while buttons.get_pressed():
+        time.sleep(1/20)
 
-def average_temperature(n=20):
-    return sum(microcontroller.cpu.temperature for i in range(n)) / n
+def change_stream(filename):
+    """Change the global MP3Decoder object to play a new file"""
+    old_stream = mp3stream.file
+    mp3stream.file = open(filename, "rb")
+    old_stream.close()
+    return mp3stream.file
 
-_bitmap_file = None
-def play_one_file(speaker, idx, filename, folder, title, next_title):
+def play_one_file(idx, filename, folder, title):
+    """Play one file, reacting to user input"""
     board.DISPLAY.auto_refresh = False
 
     playback_display.set_bitmap([
-            filename.rsplit('.', 1)[0] + ".bmp",
-            filename.rsplit('/', 1)[0] + ".bmp"])
+        filename.rsplit('.', 1)[0] + ".bmp",
+        filename.rsplit('/', 1)[0] + ".bmp"])
 
     playback_display.text = "%s\n%s" % (folder, title)
 
@@ -268,8 +303,8 @@ def play_one_file(speaker, idx, filename, folder, title, next_title):
     result = idx + 1
     wait_no_button_pressed()
     paused = False
-    sz = os.stat(filename)[6]
-    f = change_stream(filename)
+    file_size = os.stat(filename)[6]
+    mp3file = change_stream(filename)
     speaker.play(mp3stream)
     board.DISPLAY.auto_refresh = True
     while speaker.playing:
@@ -277,7 +312,7 @@ def play_one_file(speaker, idx, filename, folder, title, next_title):
         gc.collect()
 
         playback_display.rms = mp3stream.rms_level
-        playback_display.progress = f.tell() / sz
+        playback_display.progress = mp3file.tell() / file_size
 
         pressed = buttons.get_pressed()
         # SEL: cancel playlist
@@ -303,34 +338,38 @@ def play_one_file(speaker, idx, filename, folder, title, next_title):
         if pressed & BUTTON_A:
             result = idx + 1
             break
-            
+
     speaker.stop()
     playback_display.rms = 0
- 
+
     gc.collect()
 
     return result
 
-def play_all(playlist, *, folder='', trim=0, dir='/sd'):
+def play_all(playlist, *, folder='', trim=0, location='/sd'):
+    """Play everything in 'playlist', which is relative to 'location'.
+
+    'folder' is a display name for the user."""
     i = 0
     board.DISPLAY.show(playback_display.group)
-    while i >= 0 and i < len(playlist):
-        f = playlist[i]
-        next_up = (playlist[i+1][trim:-4]
-                    if i+1 < len(playlist) else "(the end)")
-        i = play_one_file(speaker, i, join(dir, f), folder, f[trim:-4], next_up)
+    while 0 <= i < len(playlist):
+        filename = playlist[i]
+        i = play_one_file(i, join(location, filename), folder, filename[trim:-4])
     speaker.stop()
     clear_display()
-    
+
 def longest_common_prefix(seq):
+    """Find the longest common prefix between all items in sequence"""
     seq0 = seq[0]
-    for i in range(0, len(seq0)):
+    for i, seq0i in enumerate(seq0):
         for j in seq:
-            if len(j) < i or j[i] != seq0[i]: return i
+            if len(j) < i or j[i] != seq0i:
+                return i
     return len(seq0)
 
-def play_folder(dir):
-    playlist = [d for d in os.listdir(dir) if d.lower().endswith('.mp3')]
+def play_folder(location):
+    """Play everything within a given folder"""
+    playlist = [d for d in os.listdir(location) if d.lower().endswith('.mp3')]
     if not playlist:
         # hmm, no mp3s in a folder?  Well, don't crash okay?
         del playlist
@@ -339,24 +378,27 @@ def play_folder(dir):
     playlist.sort()
     trim = longest_common_prefix(playlist)
     enable.value = True
-    play_all(playlist, folder=dir.split('/')[-1], trim=trim, dir=dir)
+    play_all(playlist, folder=location.split('/')[-1], trim=trim, location=location)
     enable.value = False
 
-try:
-    mount_sd()
-except OSError as detail:
-    t = adafruit_display_text.label.Label(font,
-        text="%s\n\nInsert or re-seat\nSD card\nthen press reset"
-            % detail.args[0])
-    t.x = 8
-    t.y = board.DISPLAY.height // 2
-    g = displayio.Group()
-    g.append(t)
-    board.DISPLAY.show(g)
+
+def main():
+    """The main function of the player"""
+    try:
+        mount_sd()
+    except OSError as detail:
+        text = "%s\n\nInsert or re-seat\nSD card\nthen press reset" % detail.args[0]
+        error_text = adafruit_display_text.label.Label(font, text)
+        error_text.x = 8
+        error_text.y = board.DISPLAY.height // 2
+        g = displayio.Group()
+        g.append(error_text)
+        board.DISPLAY.show(g)
+
+        while True:
+            time.sleep(1)
+
     while True:
-        time.sleep(1)
-
-while True:
-    folder = choose_folder()
-    play_folder(folder)
-
+        folder = choose_folder()
+        play_folder(folder)
+main()

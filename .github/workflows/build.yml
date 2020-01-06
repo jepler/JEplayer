@@ -15,9 +15,6 @@ jobs:
       env:
         GITHUB_CONTEXT: ${{ toJson(github) }}
       run: echo "$GITHUB_CONTEXT"
-    - uses: actions/setup-python@v1
-      with:
-        python-version: 3.5
     - uses: actions/checkout@v1
       with:
         submodules: true
@@ -25,7 +22,15 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install python3-venv build-essential gettext
-        make venv
+    - uses: actions/setup-python@v1
+      with:
+        python-version: 3.7
+    - name: print versions
+      run: python3 --version
+    - name: setup venv
+      run: make venv
+    - name: lint
+      run: make lint
     - name: build
       run: make cp
     - uses: actions/upload-artifact@v1.0.0

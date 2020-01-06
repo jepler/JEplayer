@@ -24,10 +24,14 @@ clean:
 cp:
 	$(PYTHON) install.py
 
+.PHONY: lint
+lint:
+	$(PYTHON) -mpylint src/*.py
+
 .PHONY: venv
 venv: .venv/bin/python
 
 .venv/bin/python:
-	/usr/bin/python3 -mvenv --clear .venv
+	python3 -mvenv --clear .venv
 	$(PYTHON) -mpip install wheel
 	$(PYTHON) -mpip install -r requirements.txt
