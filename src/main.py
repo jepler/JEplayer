@@ -109,7 +109,7 @@ enable = digitalio.DigitalInOut(board.SPEAKER_ENABLE)
 enable.direction = digitalio.Direction.OUTPUT
 enable.value = True
 speaker = audioio.AudioOut(board.SPEAKER, right_channel=board.A1)
-mp3stream = audiomp3.MP3File(open("/rsrc/splash.mp3", "rb"))
+mp3stream = audiomp3.MP3Decoder(open("/rsrc/splash.mp3", "rb"))
 speaker.play(mp3stream)
 
 font = adafruit_bitmap_font.bitmap_font.load_font("rsrc/5x8.bdf")
