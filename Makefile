@@ -5,8 +5,8 @@ default: install
 
 .PHONY: install
 install: cp
-	rsync --max-delete=0 --modify-window=2 -av CIRCUITPY/ $(DESTDEV)/
-	sync
+	@rsync --max-delete=0 --modify-window=2 -avO CIRCUITPY/ $(DESTDEV)/
+	@sync
 
 .PHONY: dist
 dist: cp
