@@ -182,7 +182,7 @@ def mount_sd():
     """Mount the SD card"""
     spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
     sd_cs = digitalio.DigitalInOut(board.SD_CS)
-    sdcard = adafruit_sdcard.SDCard(spi, sd_cs)
+    sdcard = adafruit_sdcard.SDCard(spi, sd_cs, baudrate=12000000)
     vfs = storage.VfsFat(sdcard)
     storage.mount(vfs, "/sd")
 
