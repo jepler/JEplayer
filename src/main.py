@@ -388,7 +388,7 @@ def main():
         mount_sd()
     except OSError as detail:
         text = "%s\n\nInsert or re-seat\nSD card\nthen press reset" % detail.args[0]
-        error_text = adafruit_display_text.label.Label(font, text)
+        error_text = adafruit_display_text.label.Label(font, text=text)
         error_text.x = 8
         error_text.y = board.DISPLAY.height // 2
         g = displayio.Group()
