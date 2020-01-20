@@ -309,7 +309,8 @@ def play_one_file(idx, filename, folder, title):
     board.DISPLAY.auto_refresh = True
     while speaker.playing:
 
-        gc.collect()
+        if gc.mem_free() < 4096:
+            gc.collect()
 
         playback_display.rms = mp3stream.rms_level
         playback_display.progress = mp3file.tell() / file_size
