@@ -3,8 +3,8 @@
 At this time, you need a special build of CircuitPython to get the latest MP3 playback goodies.  :frown: We're working to get this fixed ASAP!
 
 Once that's dealt with, all you'll need to do is unzip the JEplayer distribution
-to your PyGamer's CIRCUITPY drive, copy MP3 files to your MicroSD card, and pop
-that in the PyGamer's slot.
+to your PyGamer's CIRCUITPY drive, copy MP3 files to your MicroSD card using a USB adapter,
+and pop that in the PyGamer's slot.
 
 ## Device Orientation
 
@@ -30,16 +30,21 @@ Soul.bmp"
 
 ## Controls during playback
 
-These controls will change soon, to an icon-driven system using the joystick.
-For now, though, use these buttons to control playback:
+During playback, control JEplayer via the icon bar at the bottom of the screen.
+Press left and right on the stick select an icon -- the current one is outlined
+with a red square -- and then press any button to invoke the desired icon.
 
- * A: Next Track
- * B: Previous Track
- * Start: Pause/Resume
- * Select: Choose Playlist
+Some buttons can be "active", in which case the background is blue.
 
-Whenever you go before the first track or after the last track, you'll be
-returned to the album listing.
+From left to right:
+ * Play: Play or pause the current track.  Active to show the track is currently playing.
+ * Pause: Play or pause the current track.  Active to show the track is currently paused.
+ * Stop: Return to the folder listing
+ * Previous Track: Go to the previous track (or a random track, if shuffle is on)
+ * Next Track: Go to the next track (or a random track, if shuffle is on)
+ * Repeat: Switch repeat mode on or off.  When active, after the last track in the folder, play continues with the first track.  Mutually exclusive with Shuffle and All Folders
+ * Shuffle: Switch shuffle mode on or off.  When active, after each track, select a different random track from the folder.  Mutually exclusive with Repeat and All Folders
+ * All Folders: Switch all folders on or off.  When active, after the last track in the folder, play continues with the next folder.  Mutually exclusive with Shuffle and Repeat
 
 ## VU Meter
 

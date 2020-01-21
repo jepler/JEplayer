@@ -44,6 +44,7 @@ import busio
 import digitalio
 import displayio
 import gamepadshift
+import icons
 import neopixel
 import repeat
 import storage
@@ -62,21 +63,26 @@ def px(x, y):
     return 0 if x <= 0 else round(x / y)
 # pylint: enable=invalid-name
 
+ICON_PLAY, ICON_PAUSE, ICON_STOP, ICON_PREV, ICON_NEXT, ICON_REPEAT, ICON_SHUFFLE, ICON_FOLDERNEXT = range(8)
+
 class PlaybackDisplay:
     """Manage display during playback"""
     def __init__(self):
         self.group = displayio.Group(max_size=4)
         self.glyph_width, self.glyph_height = font.get_bounding_box()[:2]
         self.pbar = bar.Bar(0, 0, board.DISPLAY.width,
-                            self.glyph_height, colors=(0x0000ff, None))
+                self.glyph_height, colors=(0x0000ff, None))
+        self.iconbar = icons.IconBar()
+        self.iconbar.group.y = 144
         self.label = adafruit_display_text.label.Label(font, line_spacing=1.0,
                                                        max_glyphs=256)
         self.label.y = 6
         self._bitmap_filename = None
         self._fallback_bitmap = ["/rsrc/background.bmp"]
-        self.set_bitmap([])
+        self.set_bitmap([]) # Must be first!
         self.group.append(self.pbar)
         self.group.append(self.label)
+        self.group.append(self.iconbar.group)
         self.pixels = neopixel.NeoPixel(board.NEOPIXEL, 5)
         self.pixels.auto_write = False
         self.pixels.fill(0)
@@ -140,6 +146,74 @@ class PlaybackDisplay:
         self.pixels[3] = (20, 0, 0) if value > 160 else (px(value - 80, 4), 0, 0)
         self.pixels[4] = (20, 0, 0) if value > 320 else (px(value - 160, 8), 0, 0)
         self.pixels.show()
+
+    def press(self, idx):
+        result = None
+        selected = self.iconbar.selected
+        if selected == ICON_PLAY or selected == ICON_PAUSE:  # Play/Pause
+            if self.paused:
+                self.resume()
+            else:
+                self.pause()
+            self.iconbar.select(not self.paused)
+        elif selected == ICON_STOP:
+            self.iconbar.deactivate(ICON_FOLDERNEXT)
+            return (-1,)
+        elif selected == ICON_PREV:
+            if self.shuffle:
+                return (None,)
+            return (idx-1,)
+        elif selected == ICON_NEXT: 
+            if self.shuffle:
+                return (None,)
+            return (idx+1,)
+        elif selected == ICON_SHUFFLE:
+            self.iconbar.toggle(selected)
+            if self.iconbar.active[ICON_SHUFFLE]:
+                self.iconbar.deactivate(ICON_REPEAT)
+                self.iconbar.deactivate(ICON_FOLDERNEXT)
+        elif selected == ICON_REPEAT:
+            self.iconbar.toggle(selected)
+            if self.iconbar.active[ICON_REPEAT]:
+                self.iconbar.deactivate(ICON_SHUFFLE)
+                self.iconbar.deactivate(ICON_FOLDERNEXT)
+        elif selected == ICON_FOLDERNEXT:
+            self.iconbar.toggle(selected)
+            if self.iconbar.active[ICON_FOLDERNEXT]:
+                self.iconbar.deactivate(ICON_REPEAT)
+                self.iconbar.deactivate(ICON_SHUFFLE)
+        return None
+ 
+    def move(self, direction):
+        self.iconbar.select((self.iconbar.selected + direction) % 8)
+
+    def play(self, stream):
+        speaker.play(stream)
+        self.paused = False
+        self.iconbar.set_active(0, not self.paused)
+        self.iconbar.set_active(1, self.paused)
+
+    def pause(self):
+        speaker.pause()
+        self.paused = True
+        self.iconbar.set_active(0, not self.paused)
+        self.iconbar.set_active(1, self.paused)
+
+    def resume(self):
+        speaker.resume()
+        self.paused = False
+        self.iconbar.set_active(0, not self.paused)
+        self.iconbar.set_active(1, self.paused)
+        
+    @property
+    def shuffle(self):
+        return self.iconbar.active[ICON_SHUFFLE]
+    @property
+    def repeat(self):
+        return self.iconbar.active[ICON_REPEAT]
+    @property
+    def auto_next(self):
+        return self.iconbar.active[ICON_FOLDERNEXT]
 
 # pylint: disable=invalid-name
 enable = digitalio.DigitalInOut(board.SPEAKER_ENABLE)
@@ -262,16 +336,26 @@ def isdir(x):
     """Return True if 'x' is a directory"""
     return os.stat(x)[0] & S_IFDIR
 
+next_choice = 0
 def choose_folder(base='/sd'):
     """Let the user choose a folder within a base directory"""
+    global next_choice
     all_folders = sorted(m for m in os.listdir(base) if isdir(join(base, m)))
     choices = ['Surprise Me'] + all_folders
 
-    idx = menu_choice(choices,
-                      BUTTON_START | BUTTON_A | BUTTON_B | BUTTON_SEL, 0)
+    if playback_display.auto_next:
+        idx = next_choice
+    else:
+        idx = menu_choice(choices,
+                          BUTTON_START | BUTTON_A | BUTTON_B | BUTTON_SEL, 
+                          next_choice)
     clear_display()
+    next_choice = idx
     if idx >= 1:
         result = all_folders[idx-1]
+        next_choice = idx+1
+        if next_choice == len(choices):
+            next_choice = 1   # Go to first folder, not "surprise me"
     else:
         result = random.choice(all_folders)
     return join(base, result)
@@ -288,7 +372,7 @@ def change_stream(filename):
     old_stream.close()
     return mp3stream.file
 
-def play_one_file(idx, filename, folder, title):
+def play_one_file(idx, filename, folder, title, playlist_size):
     """Play one file, reacting to user input"""
     board.DISPLAY.auto_refresh = False
 
@@ -300,13 +384,15 @@ def play_one_file(idx, filename, folder, title):
 
     board.DISPLAY.refresh()
 
-    result = idx + 1
+    result = None
     wait_no_button_pressed()
     paused = False
     file_size = os.stat(filename)[6]
     mp3file = change_stream(filename)
-    speaker.play(mp3stream)
+    playback_display.play(mp3stream)
     board.DISPLAY.auto_refresh = True
+    last_pressed = buttons.get_pressed()
+
     while speaker.playing:
 
         if gc.mem_free() < 4096:
@@ -315,31 +401,32 @@ def play_one_file(idx, filename, folder, title):
         playback_display.rms = mp3stream.rms_level
         playback_display.progress = mp3file.tell() / file_size
 
-        pressed = buttons.get_pressed()
-        # SEL: cancel playlist
-        if pressed & BUTTON_SEL:
-            result = -1
-            break
-        # START: play/pause
-        if pressed & BUTTON_START:
-            wait_no_button_pressed()
-            if paused:
-                speaker.resume()
-                paused = False
-            else:
-                playback_display.rms = 0
-                speaker.pause()
-                paused = True
-            wait_no_button_pressed()
-        # A: previous track
-        if pressed & BUTTON_B:
-            result = idx - 1
-            break
-        # B: next track
-        if pressed & BUTTON_A:
-            result = idx + 1
-            break
+        joystick.poll()
+        if left_key.value:
+            playback_display.move(-1)
+        if right_key.value:
+            playback_display.move(1)
 
+        pressed = buttons.get_pressed()
+        rising_edge = pressed & ~last_pressed
+        last_pressed = pressed
+
+        if rising_edge:
+            return_now = playback_display.press(idx)
+            wait_no_button_pressed()
+            if return_now:
+                result = return_now[0]
+                break
+
+    if result is None:
+        if playback_display.shuffle:
+            if playback_display.shuffle:
+                #  Choose a random integer .. except for this one
+                j = random.randrange(len(playlist)-1)
+                if j >= i:
+                    j += 1
+        else:
+            result = (idx + 1)
     speaker.stop()
     playback_display.rms = 0
 
@@ -355,7 +442,11 @@ def play_all(playlist, *, folder='', trim=0, location='/sd'):
     board.DISPLAY.show(playback_display.group)
     while 0 <= i < len(playlist):
         filename = playlist[i]
-        i = play_one_file(i, join(location, filename), folder, filename[trim:-4])
+        i = play_one_file(i, join(location, filename), folder, filename[trim:-4], len(playlist))
+        if i == -1:
+            break
+        if playback_display.repeat and i == len(playlist):
+            i = 0
     speaker.stop()
     clear_display()
 
