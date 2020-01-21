@@ -63,7 +63,8 @@ def px(x, y):
     return 0 if x <= 0 else round(x / y)
 # pylint: enable=invalid-name
 
-ICON_PLAY, ICON_PAUSE, ICON_STOP, ICON_PREV, ICON_NEXT, ICON_REPEAT, ICON_SHUFFLE, ICON_FOLDERNEXT = range(8)
+(ICON_PLAY, ICON_PAUSE, ICON_STOP, ICON_PREV, ICON_NEXT, ICON_REPEAT,
+ ICON_SHUFFLE, ICON_FOLDERNEXT) = range(8)
 
 class PlaybackDisplay:
     """Manage display during playback"""
@@ -71,7 +72,7 @@ class PlaybackDisplay:
         self.group = displayio.Group(max_size=4)
         self.glyph_width, self.glyph_height = font.get_bounding_box()[:2]
         self.pbar = bar.Bar(0, 0, board.DISPLAY.width,
-                self.glyph_height, colors=(0x0000ff, None))
+                            self.glyph_height, colors=(0x0000ff, None))
         self.iconbar = icons.IconBar()
         self.iconbar.group.y = 144
         self.label = adafruit_display_text.label.Label(font, line_spacing=1.0,
@@ -87,6 +88,8 @@ class PlaybackDisplay:
         self.pixels.auto_write = False
         self.pixels.fill(0)
         self.pixels.show()
+        self.paused = False
+        self.next_choice = 0
 
     @property
     def text(self):
@@ -147,10 +150,11 @@ class PlaybackDisplay:
         self.pixels[4] = (20, 0, 0) if value > 320 else (px(value - 160, 8), 0, 0)
         self.pixels.show()
 
+    # pylint: disable=too-many-branches
     def press(self, idx):
-        result = None
+        """Do the action for the current icon"""
         selected = self.iconbar.selected
-        if selected == ICON_PLAY or selected == ICON_PAUSE:  # Play/Pause
+        if selected in (ICON_PLAY, ICON_PAUSE):  # Play/Pause
             if self.paused:
                 self.resume()
             else:
@@ -163,7 +167,7 @@ class PlaybackDisplay:
             if self.shuffle:
                 return (None,)
             return (idx-1,)
-        elif selected == ICON_NEXT: 
+        elif selected == ICON_NEXT:
             if self.shuffle:
                 return (None,)
             return (idx+1,)
@@ -183,37 +187,66 @@ class PlaybackDisplay:
                 self.iconbar.deactivate(ICON_REPEAT)
                 self.iconbar.deactivate(ICON_SHUFFLE)
         return None
- 
+
     def move(self, direction):
+        """Switch the current icon in the given direction"""
         self.iconbar.select((self.iconbar.selected + direction) % 8)
 
     def play(self, stream):
+        """Starting playing a stream on the speaker"""
         speaker.play(stream)
         self.paused = False
         self.iconbar.set_active(0, not self.paused)
         self.iconbar.set_active(1, self.paused)
 
     def pause(self):
+        """Pause the stream"""
         speaker.pause()
         self.paused = True
         self.iconbar.set_active(0, not self.paused)
         self.iconbar.set_active(1, self.paused)
 
     def resume(self):
+        """Resume the stream"""
         speaker.resume()
         self.paused = False
         self.iconbar.set_active(0, not self.paused)
         self.iconbar.set_active(1, self.paused)
-        
+
     @property
     def shuffle(self):
+        """Whether to shuffle the playlist"""
         return self.iconbar.active[ICON_SHUFFLE]
     @property
     def repeat(self):
+        """Whether to repeat the playlist"""
         return self.iconbar.active[ICON_REPEAT]
     @property
     def auto_next(self):
+        """Whether to play all folders"""
         return self.iconbar.active[ICON_FOLDERNEXT]
+
+    def choose_folder(self, base='/sd'):
+        """Let the user choose a folder within a base directory"""
+        all_folders = sorted(m for m in os.listdir(base) if isdir(join(base, m)))
+        choices = ['Surprise Me'] + all_folders
+
+        if playback_display.auto_next:
+            idx = self.next_choice
+        else:
+            idx = menu_choice(choices,
+                              BUTTON_START | BUTTON_A | BUTTON_B | BUTTON_SEL,
+                              self.next_choice)
+        clear_display()
+        self.next_choice = idx
+        if idx >= 1:
+            result = all_folders[idx-1]
+            self.next_choice = idx+1
+            if self.next_choice == len(choices):
+                self.next_choice = 1   # Go to first folder, not "surprise me"
+        else:
+            result = random.choice(all_folders)
+        return join(base, result)
 
 # pylint: disable=invalid-name
 enable = digitalio.DigitalInOut(board.SPEAKER_ENABLE)
@@ -336,30 +369,6 @@ def isdir(x):
     """Return True if 'x' is a directory"""
     return os.stat(x)[0] & S_IFDIR
 
-next_choice = 0
-def choose_folder(base='/sd'):
-    """Let the user choose a folder within a base directory"""
-    global next_choice
-    all_folders = sorted(m for m in os.listdir(base) if isdir(join(base, m)))
-    choices = ['Surprise Me'] + all_folders
-
-    if playback_display.auto_next:
-        idx = next_choice
-    else:
-        idx = menu_choice(choices,
-                          BUTTON_START | BUTTON_A | BUTTON_B | BUTTON_SEL, 
-                          next_choice)
-    clear_display()
-    next_choice = idx
-    if idx >= 1:
-        result = all_folders[idx-1]
-        next_choice = idx+1
-        if next_choice == len(choices):
-            next_choice = 1   # Go to first folder, not "surprise me"
-    else:
-        result = random.choice(all_folders)
-    return join(base, result)
-
 def wait_no_button_pressed():
     """Wait until no button is pressed"""
     while buttons.get_pressed():
@@ -386,7 +395,6 @@ def play_one_file(idx, filename, folder, title, playlist_size):
 
     result = None
     wait_no_button_pressed()
-    paused = False
     file_size = os.stat(filename)[6]
     mp3file = change_stream(filename)
     playback_display.play(mp3stream)
@@ -395,6 +403,7 @@ def play_one_file(idx, filename, folder, title, playlist_size):
 
     while speaker.playing:
 
+        # pylint: disable=no-member
         if gc.mem_free() < 4096:
             gc.collect()
 
@@ -422,9 +431,9 @@ def play_one_file(idx, filename, folder, title, playlist_size):
         if playback_display.shuffle:
             if playback_display.shuffle:
                 #  Choose a random integer .. except for this one
-                j = random.randrange(len(playlist)-1)
-                if j >= i:
-                    j += 1
+                result = random.randrange(playlist_size-1)
+                if result >= idx:
+                    result += 1
         else:
             result = (idx + 1)
     speaker.stop()
@@ -491,6 +500,6 @@ def main():
             time.sleep(1)
 
     while True:
-        folder = choose_folder()
+        folder = playback_display.choose_folder()
         play_folder(folder)
 main()
