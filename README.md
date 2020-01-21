@@ -10,6 +10,10 @@ and pop that in the PyGamer's slot.
 
 Hold your PyGamer "vertically" with the stick at the bottom.
 
+## Choosing MP3s
+
+JEplayer works best with 128kBit/s MP3 files with a sample rate of 44.1kHz.
+ 
 ## Folders as playlists
 
 JEplayer will show a list of all the top-level folders on the SD card.  Pick
