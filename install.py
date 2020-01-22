@@ -45,4 +45,4 @@ for dirpath, dirnames, filenames in os.walk('src', followlinks=True):
             mpy_compile(outpath, dirpath, f, destname="realmain.mpy")
         elif f.endswith('.py'): mpy_compile(outpath, dirpath, f)
         else: copy(outpath, dirpath, f)
-put("CIRCUITPY/main.py", b"import realmain\n")
+put("CIRCUITPY/code.py", b"import realmain\n")
