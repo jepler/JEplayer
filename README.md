@@ -1,6 +1,6 @@
 # JEplayer - MP3 Player for Adafruit PyGamer with CircuitPython
 
-At this time, you need a special build of CircuitPython to get the latest MP3 playback goodies.  :frown: We're working to get this fixed ASAP!
+Make sure you are using CircuitPython 5.0.0.beta4 or newer for JEplayer.
 
 Once that's dealt with, all you'll need to do is unzip the JEplayer distribution
 to your PyGamer's CIRCUITPY drive, copy MP3 files to your MicroSD card using a USB adapter,
