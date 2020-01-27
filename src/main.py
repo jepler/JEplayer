@@ -314,7 +314,7 @@ def menu_choice(seq, button_ok, button_cancel=0, *, sel_idx=0, text_font=font):
     labels = [adafruit_display_text.label.Label(text_font, max_glyphs=max_glyphs)
               for i in range(num_rows)]
     cursor = adafruit_display_text.label.Label(text_font, max_glyphs=1, color=0xddddff)
-    base_y = (glyph_height+1)//2
+    base_y = glyph_height//2-1
     scene = displayio.Group(max_size=len(labels) + 1)
     for i, label in enumerate(labels):
         label.x = round(glyph_width * 1.5)
@@ -326,7 +326,7 @@ def menu_choice(seq, button_ok, button_cancel=0, *, sel_idx=0, text_font=font):
     cursor.text = ">"
     scene.append(cursor)
 
-    last_scroll_idx = max(0, len(seq) - num_rows - 1)
+    last_scroll_idx = max(0, len(seq) - num_rows)
 
     board.DISPLAY.show(scene)
     buttons.get_pressed() # Clear out anything from before now
