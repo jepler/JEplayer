@@ -236,7 +236,7 @@ class PlaybackDisplay:
         else:
             idx = menu_choice(choices,
                               BUTTON_START | BUTTON_A | BUTTON_B | BUTTON_SEL,
-                              self.next_choice)
+                              sel_idx=self.next_choice)
         clear_display()
         self.next_choice = idx
         if idx >= 1:
@@ -304,7 +304,7 @@ def shuffle(seq):
         seq[i], seq[j] = seq[j], seq[i]
 
 # pylint: disable=too-many-locals
-def menu_choice(seq, button_ok, button_cancel, *, sel_idx=0, text_font=font):
+def menu_choice(seq, button_ok, button_cancel=0, *, sel_idx=0, text_font=font):
     """Display a menu and allow a choice from it"""
     board.DISPLAY.auto_refresh = True
     scroll_idx = sel_idx
