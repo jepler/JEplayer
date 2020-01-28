@@ -305,7 +305,7 @@ def shuffle(seq):
         j = random.randint(i, len(seq)-1)
         seq[i], seq[j] = seq[j], seq[i]
 
-# pylint: disable=too-many-locals
+# pylint: disable=too-many-locals,too-many-statements
 def menu_choice(seq, button_ok, button_cancel=0, *, sel_idx=0, text_font=font):
     """Display a menu and allow a choice from it"""
     gc.collect()
