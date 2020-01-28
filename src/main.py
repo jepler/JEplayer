@@ -402,7 +402,9 @@ def play_one_file(idx, filename, folder, title, playlist_size):
 
     playback_display.set_bitmap([
         filename.rsplit('.', 1)[0] + ".bmp",
-        filename.rsplit('/', 1)[0] + ".bmp"])
+        filename.rsplit('/', 1)[0] + ".bmp",
+        filename.rsplit('/', 1)[0] + "/cover.bmp",
+    ])
 
     playback_display.text = "%s\n%s" % (folder, title)
 
