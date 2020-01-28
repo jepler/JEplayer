@@ -43,6 +43,7 @@ import board
 import busio
 import digitalio
 import displayio
+import terminalio
 import gamepadshift
 import icons
 import neopixel
@@ -236,7 +237,8 @@ class PlaybackDisplay:
         else:
             idx = menu_choice(choices,
                               BUTTON_START | BUTTON_A | BUTTON_B | BUTTON_SEL,
-                              sel_idx=self.next_choice)
+                              sel_idx=self.next_choice,
+                              text_font=terminalio.FONT)
         clear_display()
         self.next_choice = idx
         if idx >= 1:
@@ -306,23 +308,33 @@ def shuffle(seq):
 # pylint: disable=too-many-locals
 def menu_choice(seq, button_ok, button_cancel=0, *, sel_idx=0, text_font=font):
     """Display a menu and allow a choice from it"""
+    gc.collect()
     board.DISPLAY.auto_refresh = True
     scroll_idx = sel_idx
     glyph_width, glyph_height = text_font.get_bounding_box()[:2]
     num_rows = min(len(seq), board.DISPLAY.height // glyph_height)
     max_glyphs = board.DISPLAY.width // glyph_width
-    labels = [adafruit_display_text.label.Label(text_font, max_glyphs=max_glyphs)
+    palette = displayio.Palette(2)
+    palette[0] = 0
+    palette[1] = 0xffffff
+    labels = [displayio.TileGrid(text_font.bitmap, pixel_shader=palette,
+                                 width=max_glyphs+1, height=1,
+                                 tile_width=glyph_width,
+                                 tile_height=glyph_height)
               for i in range(num_rows)]
+    terminals = [terminalio.Terminal(li, text_font) for li in labels]
     cursor = adafruit_display_text.label.Label(text_font, max_glyphs=1, color=0xddddff)
     base_y = glyph_height//2-1
+    caret_offset = glyph_height//2-1
     scene = displayio.Group(max_size=len(labels) + 1)
     for i, label in enumerate(labels):
         label.x = round(glyph_width * 1.5)
         label.y = base_y + glyph_height * i
-        label.text = seq[i][:max_glyphs]
+        terminals[i].write('\r')
+        terminals[i].write(seq[i][:max_glyphs])
         scene.append(label)
     cursor.x = 0
-    cursor.y = base_y
+    cursor.y = caret_offset
     cursor.text = ">"
     scene.append(cursor)
 
@@ -347,19 +359,22 @@ def menu_choice(seq, button_ok, button_cancel=0, *, sel_idx=0, text_font=font):
 
         sel_idx = min(len(seq)-1, max(0, sel_idx))
 
+        old_scroll_idx = scroll_idx
         if scroll_idx > sel_idx or scroll_idx + num_rows <= sel_idx:
             scroll_idx = sel_idx - num_rows // 2
         scroll_idx = min(last_scroll_idx, max(0, scroll_idx))
 
-        for i in range(scroll_idx, scroll_idx + num_rows):
-            j = i - scroll_idx
-            new_text = ''
-            if i < len(seq):
-                new_text = seq[i][:max_glyphs]
-            if new_text != labels[j].text:
-                labels[j].text = new_text
-
-        cursor.y = base_y + glyph_height * (sel_idx - scroll_idx)
+        board.DISPLAY.auto_refresh = False
+        if old_scroll_idx != scroll_idx:
+            for i in range(scroll_idx, scroll_idx + num_rows):
+                j = i - scroll_idx
+                new_text = ''
+                if i < len(seq):
+                    new_text = seq[i][:max_glyphs]
+                terminals[j].write('\r\033[K')
+                terminals[j].write(new_text)
+        cursor.y = caret_offset + base_y + glyph_height * (sel_idx - scroll_idx)
+        board.DISPLAY.auto_refresh = True
 
         time.sleep(1/20)
 # pylint: enable=too-many-locals
