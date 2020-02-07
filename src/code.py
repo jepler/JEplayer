@@ -324,7 +324,7 @@ def menu_choice(seq, button_ok, button_cancel=0, *, sel_idx=0, text_font=font):
               for i in range(num_rows)]
     terminals = [terminalio.Terminal(li, text_font) for li in labels]
     cursor = adafruit_display_text.label.Label(text_font, max_glyphs=1, color=0xddddff)
-    base_y = glyph_height//2-1
+    base_y = 0
     caret_offset = glyph_height//2-1
     scene = displayio.Group(max_size=len(labels) + 1)
     for i, label in enumerate(labels):
