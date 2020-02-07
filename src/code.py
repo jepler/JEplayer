@@ -55,7 +55,6 @@ def clear_display():
     """Display nothing"""
     board.DISPLAY.show(displayio.Group(max_size=1))
 
-board.DISPLAY.rotation = 0
 clear_display()
 
 # pylint: disable=invalid-name
@@ -75,7 +74,9 @@ class PlaybackDisplay:
         self.pbar = bar.Bar(0, 0, board.DISPLAY.width,
                             self.glyph_height, colors=(0x0000ff, None))
         self.iconbar = icons.IconBar()
-        self.iconbar.group.y = 144
+        self.iconbar.group.y = 112
+        for i in range(5, 8):
+            self.iconbar.icons[i].x += 32
         self.label = adafruit_display_text.label.Label(font, line_spacing=1.0,
                                                        max_glyphs=256)
         self.label.y = 6
@@ -132,8 +133,8 @@ class PlaybackDisplay:
                 self.group.append(self.tile_grid)
             else:
                 self.group[0] = self.tile_grid
-            self.tile_grid.x = 0
-            self.tile_grid.y = self.glyph_height*2
+            self.tile_grid.x = (160 - bitmap.width) // 2
+            self.tile_grid.y = self.glyph_height*2 + max(0, (96 - bitmap.height) // 2)
             break
 
     @property
@@ -271,16 +272,10 @@ BUTTON_B = const(1)
 
 joystick = analogjoy.AnalogJoystick()
 
-if board.DISPLAY.rotation == 270:
-    up_key = repeat.KeyRepeat(lambda: joystick.up, rate=0.2)
-    down_key = repeat.KeyRepeat(lambda: joystick.down, rate=0.2)
-    left_key = repeat.KeyRepeat(lambda: joystick.left, rate=0.2)
-    right_key = repeat.KeyRepeat(lambda: joystick.right, rate=0.2)
-else:
-    left_key = repeat.KeyRepeat(lambda: joystick.up, rate=0.2)
-    right_key = repeat.KeyRepeat(lambda: joystick.down, rate=0.2)
-    down_key = repeat.KeyRepeat(lambda: joystick.left, rate=0.2)
-    up_key = repeat.KeyRepeat(lambda: joystick.right, rate=0.2)
+up_key = repeat.KeyRepeat(lambda: joystick.up, rate=0.2)
+down_key = repeat.KeyRepeat(lambda: joystick.down, rate=0.2)
+left_key = repeat.KeyRepeat(lambda: joystick.left, rate=0.2)
+right_key = repeat.KeyRepeat(lambda: joystick.right, rate=0.2)
 
 buttons = gamepadshift.GamePadShift(digitalio.DigitalInOut(board.BUTTON_CLOCK),
                                     digitalio.DigitalInOut(board.BUTTON_OUT),
