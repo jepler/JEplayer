@@ -310,7 +310,7 @@ def menu_choice(seq, button_ok, button_cancel=0, *, sel_idx=0, text_font=font):
     """Display a menu and allow a choice from it"""
     gc.collect()
     board.DISPLAY.auto_refresh = True
-    scroll_idx = sel_idx
+    scroll_idx = 0
     glyph_width, glyph_height = text_font.get_bounding_box()[:2]
     num_rows = min(len(seq), board.DISPLAY.height // glyph_height)
     max_glyphs = board.DISPLAY.width // glyph_width
@@ -330,8 +330,6 @@ def menu_choice(seq, button_ok, button_cancel=0, *, sel_idx=0, text_font=font):
     for i, label in enumerate(labels):
         label.x = round(glyph_width * 1.5)
         label.y = base_y + glyph_height * i
-        terminals[i].write('\r')
-        terminals[i].write(seq[i][:max_glyphs])
         scene.append(label)
     cursor.x = 0
     cursor.y = caret_offset
@@ -343,6 +341,8 @@ def menu_choice(seq, button_ok, button_cancel=0, *, sel_idx=0, text_font=font):
     board.DISPLAY.show(scene)
     buttons.get_pressed() # Clear out anything from before now
     i = 0
+    old_scroll_idx = None
+
     while True:
         enable.value = speaker.playing
         pressed = buttons.get_pressed()
@@ -359,7 +359,6 @@ def menu_choice(seq, button_ok, button_cancel=0, *, sel_idx=0, text_font=font):
 
         sel_idx = min(len(seq)-1, max(0, sel_idx))
 
-        old_scroll_idx = scroll_idx
         if scroll_idx > sel_idx or scroll_idx + num_rows <= sel_idx:
             scroll_idx = sel_idx - num_rows // 2
         scroll_idx = min(last_scroll_idx, max(0, scroll_idx))
@@ -375,6 +374,7 @@ def menu_choice(seq, button_ok, button_cancel=0, *, sel_idx=0, text_font=font):
                 terminals[j].write(new_text)
         cursor.y = caret_offset + base_y + glyph_height * (sel_idx - scroll_idx)
         board.DISPLAY.auto_refresh = True
+        old_scroll_idx = scroll_idx
 
         time.sleep(1/20)
 # pylint: enable=too-many-locals
