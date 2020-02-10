@@ -1,4 +1,4 @@
 build_deps
 CIRCUITPY
 .venv
-pyrockout.zip
+*.zip
