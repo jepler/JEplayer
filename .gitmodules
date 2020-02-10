@@ -16,3 +16,6 @@
 [submodule "lib/Adafruit_CircuitPython_ImageLoad"]
 	path = lib/Adafruit_CircuitPython_ImageLoad
 	url = https://github.com/adafruit/Adafruit_CircuitPython_ImageLoad
+[submodule "lib/Adafruit_CircuitPython_ProgressBar"]
+	path = lib/Adafruit_CircuitPython_ProgressBar
+	url = https://github.com/adafruit/Adafruit_CircuitPython_ProgressBar
