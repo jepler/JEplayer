@@ -229,13 +229,15 @@ class PlaybackDisplay:
         """Whether to play all folders"""
         return self.iconbar.active[ICON_FOLDERNEXT]
 
-    def has_any_mp3s(self, folder):
-        print("has_any_mp3s", folder)
+    @staticmethod
+    def has_any_mp3s(folder):
+        """True if the folder contains at least one item ending in .mp3"""
         return any(fn.lower().endswith(".mp3") for fn in os.listdir(folder))
 
     def choose_folder(self, base='/sd'):
         """Let the user choose a folder within a base directory"""
-        all_folders = (m for m in os.listdir(base) if not m.startswith('.') and isdir(join(base, m)))
+        all_folders = (m for m in os.listdir(base)
+                       if not m.startswith('.') and isdir(join(base, m)))
         all_folders = sorted(f for f in all_folders if self.has_any_mp3s(join(base, f)))
         choices = ['Surprise Me'] + all_folders
 
